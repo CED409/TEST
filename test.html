@@ -60,7 +60,7 @@ input:focus { outline: none; border-color: #ff4500; }
   </div>
   <div class="input-group">
     <label>TEST TOKEN ADDRESS</label>
-    <input id="tokenAddr" value="0x4c931C7d5f11A86B56189C5263eeA1f35748E22e" />
+    <input id="tokenAddr" value="0x257e354e8d3646df98a3642875b64832e2bf28df" />
   </div>
   <button class="btn" onclick="connectWallet()">🦊 CONNECT METAMASK</button>
 </div>
@@ -158,6 +158,7 @@ const PRESALE_ABI = [
 const TOKEN_ABI = [
   "function transfer(address to, uint256 amount) external returns (bool)",
   "function balanceOf(address) view returns (uint256)",
+  "function rescueTokens(address,uint256) external",
 ];
 
 let provider, signer, wallet;
@@ -388,7 +389,6 @@ async function runSecurityTests() {
     presale = new ethers.Contract(presaleAddr, PRESALE_ABI, signer);
     await (await token.transfer(presaleAddr, ethers.parseEther('10000000'))).wait();
     log(`Fresh presale: ${presaleAddr}`, 'success');
-    await (await token.transfer(presaleAddr, ethers.parseEther('10000000'))).wait();
     log('Fresh presale funded 10M tokens', 'success');
 
     // ─── TEST 6: SOFTCAP LOGIC ───
@@ -535,6 +535,21 @@ async function runSecurityTests() {
       log('🎉 NO VULNERABILITIES FOUND — READY FOR MAINNET!', 'pass');
     } else {
       log(`⚠️ ${vulns} VULNERABILITIES FOUND — DO NOT DEPLOY TO MAINNET!`, 'fail');
+    }
+
+    // ─── RECOVER TOKENS → FOUNDER ───
+    try {
+      const tokenAddr = document.getElementById('tokenAddr').value;
+      const bal = await token.balanceOf(presaleAddr);
+      if (bal > 0n) {
+        log('', 'info');
+        log(`Recovering ${ethers.formatEther(bal)} MHT → founder wallet...`, 'pending');
+        await (await token.rescueTokens(tokenAddr, bal)).wait();
+        const newBal = await token.balanceOf(wallet);
+        log(`✅ Tokens recovered — founder balance: ${ethers.formatEther(newBal)} MHT`, 'pass');
+      }
+    } catch(e) {
+      log(`⚠️ Recovery skipped: ${e.message}`, 'warning');
     }
 
   } catch(err) {

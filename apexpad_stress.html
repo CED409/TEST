@@ -300,11 +300,11 @@ select option { background: #111; }
       <div class="card-title">⚙️ CONFIGURATION</div>
       <div class="input-group">
         <label class="input-label">FACTORY ADDRESS (MAINNET V3)</label>
-        <input id="factoryAddr" value="0x96c32Ee9ea339e09cdEC3BaF9CDdc29F0898B2Da" />
+        <input id="factoryAddr" value="0x8485d71b6aD29b2D7d7C43c26871dc4779EFd8fD" />
       </div>
       <div class="input-group">
         <label class="input-label">TEST TOKEN ADDRESS</label>
-        <input id="tokenAddr" value="0x4c931C7d5f11A86B56189C5263eeA1f35748E22e" />
+        <input id="tokenAddr" value="0x257e354e8d3646df98a3642875b64832e2bf28df" />
       </div>
       <div class="input-group">
         <label class="input-label">NETWORK</label>
@@ -442,6 +442,7 @@ const TOKEN_ABI = [
   "function transfer(address,uint256) external returns (bool)",
   "function balanceOf(address) view returns (uint256)",
   "function approve(address,uint256) external returns (bool)",
+  "function rescueTokens(address,uint256) external",
 ];
 
 // ═══ STATE ═══
@@ -520,12 +521,30 @@ async function setupPresale(softCapBNB = '0.05', hardCapBNB = '1', minBNB = '0.0
   presaleAddr = await factory.presales(count - 1n);
   presale = new ethers.Contract(presaleAddr, PRESALE_ABI, signer);
   log(`Presale: ${presaleAddr}`, 'success');
-  await (await token.transfer(presaleAddr, ethers.parseEther('50000000'))).wait();
-  log('Funded: 50M tokens', 'success');
+  await (await token.transfer(presaleAddr, ethers.parseEther('10000000'))).wait();
+  log('Funded: 10M tokens', 'success');
   return presale;
 }
 
-// ═══ MAIN STRESS TEST ═══
+// ═══ RECOVER TOKENS FROM PRESALE → FOUNDER ═══
+async function recoverTokensFromPresale() {
+  try {
+    const tokenAddr = document.getElementById('tokenAddr').value;
+    const bal = await token.balanceOf(presaleAddr);
+    if (bal > 0n) {
+      log(`Recovering ${ethers.formatEther(bal)} MHT from presale → founder...`, 'pending');
+      await (await token.rescueTokens(tokenAddr, bal)).wait();
+      const newBal = await token.balanceOf(wallet);
+      log(`✅ Tokens recovered — founder balance: ${ethers.formatEther(newBal)} MHT`, 'success');
+    } else {
+      log('No tokens to recover from presale', 'info');
+    }
+  } catch(e) {
+    log(`⚠️ Recovery skipped: ${e.message}`, 'warning');
+  }
+}
+
+
 async function runStressTest() {
   document.getElementById('runBtn').disabled = true;
   document.getElementById('scoreDisplay').classList.remove('visible');
@@ -615,6 +634,7 @@ async function scenarioNormal() {
   ['a2','a4','a5','a6','a7','a8','a10','a11'].forEach(id => setAttack(id, 'passed'));
   passed += 8;
   updateStats();
+  await recoverTokensFromPresale();
 }
 
 // ═══ SCENARIO 2: WHALE ATTACK ═══
@@ -650,6 +670,7 @@ async function scenarioWhale() {
 
   ['a1','a3','a5','a6','a7','a9','a10','a11','a12'].forEach(id => setAttack(id, 'passed'));
   passed += 9; updateStats();
+  await recoverTokensFromPresale();
 }
 
 // ═══ SCENARIO 3: RAPID FIRE ═══
@@ -688,6 +709,7 @@ async function scenarioRapidFire() {
 
   ['a1','a2','a3','a4','a8','a9','a10','a11','a12'].forEach(id => setAttack(id, 'passed'));
   passed += 9; updateStats();
+  await recoverTokensFromPresale();
 }
 
 // ═══ SCENARIO 4: FULL ATTACK ═══
@@ -777,6 +799,7 @@ async function scenarioFullAttack() {
   await pass('a12', '2% fee calculation verified');
 
   updateStats();
+  await recoverTokensFromPresale();
 }
 </script>
 </body>

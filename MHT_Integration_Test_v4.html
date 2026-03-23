@@ -211,7 +211,7 @@ input:focus { outline: none; border-color: var(--fire); }
   <h2>📋 CONFIGURATION — TESTNET ADDRESSES</h2>
   <div class="input-group">
     <label>MHT TOKEN V4.1 (TESTNET)</label>
-    <input id="mhtAddr" value="0x22E0fcEc929c4F38c8D8c03B2B2F225E98F133fa" />
+    <input id="mhtAddr" value="0x257e354e8d3646df98a3642875b64832e2bf28df" />
   </div>
   <div class="input-group">
     <label>APEXPAD FACTORY V3 (TESTNET)</label>
@@ -1457,6 +1457,23 @@ async function runIntegrationTest() {
 
     // Enable export
     document.getElementById('exportBtn').disabled = false;
+
+    // ─── RECOVER TOKENS → FOUNDER ───
+    try {
+      if (presaleAddr) {
+        const tokenAddr = document.getElementById('mhtAddr').value;
+        const bal = await mht.balanceOf(presaleAddr);
+        if (bal > 0n) {
+          log('', 'info');
+          log(`Recovering ${ethers.formatEther(bal)} MHT from presale → founder...`, 'warning');
+          await (await mht.rescueTokens(tokenAddr, bal)).wait();
+          const newBal = await mht.balanceOf(signerAddr);
+          log(`✅ Tokens recovered — founder balance: ${ethers.formatEther(newBal)} MHT`, 'pass');
+        }
+      }
+    } catch(e) {
+      log(`⚠️ Recovery skipped: ${e.message}`, 'warning');
+    }
 
   } catch(e) {
     log(`ERREUR FATALE : ${e.message}`, 'error');
